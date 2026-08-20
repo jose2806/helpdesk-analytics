@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+
+# Data generated locally
+data/raw/
+data/processed/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Power BI temporary files
+~$*.pbix
+*.pbit.bak
+
+# Local database volumes
+postgres_data/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Secrets
+secrets/
