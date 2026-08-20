@@ -2,6 +2,7 @@ pandas
 numpy
 sqlalchemy
 psycopg2-binary
+pyodbc
 python-dotenv
 fastapi
 uvicorn
