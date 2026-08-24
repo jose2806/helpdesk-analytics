@@ -126,3 +126,63 @@ def validate_relationships(tickets, users, agents, categories, assets):
     errors.extend(validate_foreign_key(tickets, "asset_id", assets, "asset_id"))
 
     return errors
+
+
+def validate_transformed_tickets(tickets):
+    errors = []
+
+    # ==========================================
+    # SLA UTILIZATION
+    # ==========================================
+
+    if "sla_utilization" in tickets.columns:
+        invalid_sla = tickets[
+            (tickets["resolution_hours"].notna()) & (tickets["sla_utilization"].isna())
+        ]
+
+        if len(invalid_sla) > 0:
+            errors.append(
+                "sla_utilization is missing for " f"{len(invalid_sla)} resolved tickets"
+            )
+
+    # ==========================================
+    # RESOLUTION BUCKET
+    # ==========================================
+
+    if "resolution_bucket" in tickets.columns:
+        invalid_bucket = tickets[
+            (tickets["resolution_hours"].notna())
+            & (tickets["resolution_bucket"].isna())
+        ]
+
+        if len(invalid_bucket) > 0:
+            errors.append(
+                "resolution_bucket is missing for "
+                f"{len(invalid_bucket)} resolved tickets"
+            )
+
+    # ==========================================
+    # BACKLOG
+    # ==========================================
+
+    if "backlog_flag" in tickets.columns:
+        expected_backlog = tickets["status"].isin(["Abierto", "En progreso"])
+
+    mismatches = (tickets["backlog_flag"] != expected_backlog).sum()
+
+    if mismatches > 0:
+        errors.append(f"backlog_flag has {mismatches} inconsistent records")
+
+    # ==========================================
+    # HIGH PRIORITY
+    # ==========================================
+
+    if "high_priority_flag" in tickets.columns:
+        expected_high_priority = tickets["priority"].isin(["Alta", "Crítica"])
+
+    mismatches = (tickets["high_priority_flag"] != expected_high_priority).sum()
+
+    if mismatches > 0:
+        errors.append(f"high_priority_flag has {mismatches} inconsistent records")
+
+    return errors

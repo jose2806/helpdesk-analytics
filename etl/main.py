@@ -1,6 +1,12 @@
 from etl.config.settings import RAW_DATA_DIR
 from etl.extract.csv_reader import load_csv
-from etl.quality.validator import validate_tickets, validate_relationships
+from etl.quality.validator import (
+    validate_tickets,
+    validate_relationships,
+    validate_transformed_tickets,
+)
+from etl.transform.cleaner import clean_tickets
+from etl.transform.transformer import add_ticket_metrics
 
 
 def main():
@@ -70,6 +76,56 @@ def main():
             print(f" - {error}")
         raise SystemExit("ETL stopped due to relationship errors.")
     print("✓ Relationship validation passed")
+
+    # ==============================
+    # CLEAN
+    # ==============================
+
+    print("\n[3/5] Cleaning data...")
+
+    tickets = clean_tickets(tickets)
+
+    print(f"✓ Tickets after cleaning: " f"{len(tickets):,}")
+
+    # ==============================
+    # TRANSFORM
+    # ==============================
+
+    print("\n[4/5] Transforming data...")
+
+    tickets = add_ticket_metrics(tickets)
+
+    print("✓ Ticket metrics generated")
+
+    # ==============================
+    # TRANSFORMED DATA QUALITY
+    # ==============================
+
+    print("\n[5/5] Validating transformed data...")
+
+    transformed_errors = validate_transformed_tickets(tickets)
+
+    if transformed_errors:
+        print("\n❌ TRANSFORMATION ERRORS")
+
+        for error in transformed_errors:
+            print(f" - {error}")
+
+        raise SystemExit("ETL stopped after transformation.")
+
+    print("✓ Transformed data validation passed")
+
+    print("\n========== TRANSFORMATION SUMMARY ==========")
+
+    print(f"Total tickets: {len(tickets):,}")
+
+    print(f"Backlog tickets: " f"{tickets['backlog_flag'].sum():,}")
+
+    print(f"High/Critical tickets: " f"{tickets['high_priority_flag'].sum():,}")
+
+    print(f"Resolved tickets: " f"{tickets['resolution_hours'].notna().sum():,}")
+
+    print(f"Average SLA utilization: " f"{tickets['sla_utilization'].mean():.2%}")
 
 
 if __name__ == "__main__":
