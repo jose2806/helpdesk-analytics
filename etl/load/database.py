@@ -23,13 +23,13 @@ def get_connection_string():
     return "mssql+pyodbc:///?odbc_connect=" + quote_plus(connetion_string)
 
 
-def get_enngine():
+def get_engine():
     connection_string = get_connection_string()
     return create_engine(connection_string, fast_executemany=True)
 
 
 def test_connection():
-    engine = get_enngine()
+    engine = get_engine()
     with engine.connect() as connection:
         result = connection.execute(text(""" SELECT @@SERVERNAME AS server_name,
             DB_NAME() AS database_name,

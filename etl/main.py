@@ -1,3 +1,4 @@
+import pandas as pd
 from etl.config.settings import RAW_DATA_DIR
 from etl.extract.csv_reader import load_csv
 from etl.quality.validator import (
@@ -7,6 +8,8 @@ from etl.quality.validator import (
 )
 from etl.transform.cleaner import clean_tickets
 from etl.transform.transformer import add_ticket_metrics
+from etl.load.database import get_engine
+from etl.transform.date_dimension import generate_date_dimension, load_date_dimension
 
 
 def main():
@@ -76,6 +79,48 @@ def main():
             print(f" - {error}")
         raise SystemExit("ETL stopped due to relationship errors.")
     print("✓ Relationship validation passed")
+
+    print("\n[LOAD TEST] Loading users into SQL Server...")
+
+    engine = get_engine()
+    ##users.to_sql("users", schema="stg", con=engine, if_exists="appennd", index=False)
+    users.to_sql("users", schema="stg", con=engine, if_exists="replace", index=False)
+    ##agents.to_sql("agents", schema="stg", con=engine, if_exists="apend", index=False)
+    agents.to_sql("agents", schema="stg", con=engine, if_exists="replace", index=False)
+    """ categories.to_sql(
+        "categories", schema="stg", con=engine, if_exists="append", index=False
+    ) """
+    categories.to_sql(
+        "categories", schema="stg", con=engine, if_exists="replace", index=False
+    )
+    """ departments.to_sql(
+        "departments", schema="stg", con=engine, if_exists="append", index=False
+    ) """
+    departments.to_sql(
+        "departments", schema="stg", con=engine, if_exists="replace", index=False
+    )
+    """ locations.to_sql("locations", schema="stg", con=engine, if_exists="append",index=False) """
+    locations.to_sql(
+        "locations", schema="stg", con=engine, if_exists="replace", index=False
+    )
+    """ assets.to_sql("assets",schema="stg",con=engine,if_exists="append", index=False) """
+    assets.to_sql("assets", schema="stg", con=engine, if_exists="replace", index=False)
+
+    print(f"✓ Users loaded into stg.users: " f"{len(users):,}")
+    print(f"✓ Agents loaded into stg.agents: " f"{len(agents):,}")
+    print(f"✓ Categories loaded into stg.categories: " f"{len(categories):,}")
+    print(f"✓ Departments loaded into stg.departments: " f"{len(departments):,}")
+    print(f"✓ Locations loaded into stg.locations: " f"{len(locations):,}")
+    print(f"✓ Assets loaded into stg.assets: " f"{len(assets):,}")
+
+    print("\n[DATE DIMENSION] Generating date dimension...")
+    tickets["created_at"] = pd.to_datetime(tickets["created_at"])
+    start_date = tickets["created_at"].min().date()
+    end_date = tickets["created_at"].max().date()
+
+    date_dimension = generate_date_dimension(start_date, end_date)
+    loaded_dates = load_date_dimension(date_dimension, engine)
+    print(f"✓ Dates loaded into dw.dim_date: " f"{loaded_dates:,}")
 
     # ==============================
     # CLEAN
