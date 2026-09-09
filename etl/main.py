@@ -1,4 +1,5 @@
 import pandas as pd
+from sqlalchemy import text
 from etl.config.settings import RAW_DATA_DIR
 from etl.extract.csv_reader import load_csv
 from etl.quality.validator import (
@@ -19,6 +20,9 @@ def main():
     print("       HELPDESK ETL")
     print("================================")
 
+    # ==============================
+    # EXTRACTION
+    # ==============================
     print("\n[1/6] Extracting data...")
 
     tickets = load_csv("tickets.csv", RAW_DATA_DIR)
@@ -97,6 +101,7 @@ def main():
 
     load_staging(
         engine=engine,
+        tickets=tickets,
         users=users,
         agents=agents,
         categories=categories,
@@ -108,11 +113,50 @@ def main():
     tickets["created_at"] = pd.to_datetime(tickets["created_at"])
     start_date = tickets["created_at"].min().date()
     end_date = tickets["created_at"].max().date()
-    
+
     date_dimension = generate_date_dimension(start_date, end_date)
     loaded_dates = load_date_dimension(date_dimension, engine)
     print(f"✓ Dates loaded into dw.dim_date: " f"{loaded_dates:,}")
-    
+
+    # ==============================
+    # LOAD FACT TABLE
+    # ==============================
+
+    print("\n[FACT TABLE] Loading dw.fact_tickets...")
+
+    with engine.begin() as connection:
+        connection.execute(text("EXEC dw.sp_load_fact_tickets"))
+    print("✓ Fact table loaded successfully")
+
+    # ==============================
+    # FACT TABLE VALIDATION
+    # ==============================
+
+    with engine.connect() as connection:
+        staging_count = connection.execute(
+            text("SELECT COUNT(*) FROM stg.tickets")
+        ).scalar_one()
+        fact_count = connection.execute(
+            text("SELECT COUNT(*) FROM dw.fact_tickets")
+        ).scalar_one()
+        null_asset_count = connection.execute(
+            text("SELECT COUNT(*) FROM dw.fact_tickets WHERE asset_key is NULL")
+        ).scalar_one()
+        unknown_asset_count = connection.execute(
+            text("SELECT COUNT(*) FROM dw.fact_tickets WHERE asset_key = 0")
+        ).scalar_one()
+
+    print(f"✓ Staging tickets: {staging_count:,}")
+    print(f"✓ Fact tickets: {fact_count:,}")
+    print(f"✓ Tickets with NULL asset_key: {null_asset_count:,}")
+    print(f"✓ Tickets using Unknown Asset: {unknown_asset_count:,}")
+
+    if staging_count != fact_count:
+        raise SystemExit("ETL stopped: staging and fact ticket counts do not match.")
+    if null_asset_count != 0:
+        raise SystemExit("ETL stopped: fact_tickets contains NULL asset_key values.")
+    print("✓ Fact table validation passed")
+
     # ==============================
     # TRANSFORMED DATA QUALITY
     # ==============================

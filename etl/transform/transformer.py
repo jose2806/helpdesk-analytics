@@ -46,8 +46,33 @@ def add_ticket_metrics(tickets: pd.DataFrame) -> pd.DataFrame:
     # ==========================================
     # SLA UTILIZATION
     # ==========================================
+    # SLA is evaluated only for tickets that have been resolved.
+    # A resolved ticket breaches SLA when resolution_hours exceeds
+    # the configured SLA target. Unresolved tickets are not treated
+    # as compliant or breached yet.
 
-    df["sla_utilization"] = df["resolution_hours"] / df["sla_target_hours"]
+    resolved_mask = df["resolution_hours"].notna()
+    valid_sla_mask = (
+        resolved_mask & df["sla_target_hours"].notna() & (df["sla_target_hours"] > 0)
+    )
+    df["sla_breached"] = False
+    df.loc[valid_sla_mask, "sla_breached"] = (
+        df.loc[valid_sla_mask, "resolution_hours"]
+        > df.loc[valid_sla_mask, "sla_target_hours"]
+    )
+
+    df["sla_compliant"] = False
+    df.loc[valid_sla_mask, "sla_compliant"] = (
+        df.loc[valid_sla_mask, "resolution_hours"]
+        <= df.loc[valid_sla_mask, "sla_target_hours"]
+    )
+
+    # SLA utilization is only meaningful for resolved tickets.
+    df["sla_utilization"] = pd.NA
+    df.loc[valid_sla_mask, "sla_utilization"] = (
+        df.loc[valid_sla_mask, "resolution_hours"]
+        / df.loc[valid_sla_mask, "sla_target_hours"]
+    )
 
     # ==========================================
     # RESOLUTION BUCKET
